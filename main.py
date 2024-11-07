@@ -3,8 +3,7 @@ from googleapiclient.discovery import build
 
 KEY_PATH = 'mymanager-service-account.json'
 SPREADSHEET_ID = '1cNDmKyyC4IeDrCC4ktwy49Y3PTAZYbvOkjSv_tvUvAw'
-WRITE_RANGE = 'Tasks!A2' # Replace with desired range
-READ_RANGE = 'Tasks!A2:C1000' # Replace with desired range
+RANGE = 'Tasks!A2:Z1000'
 
 credentials = service_account.Credentials.from_service_account_file(
     KEY_PATH,
@@ -13,50 +12,82 @@ credentials = service_account.Credentials.from_service_account_file(
 
 service = build('sheets', 'v4', credentials=credentials)
 
-def append_task():
-    task_name = input("Enter the task name: ")
-    task_time = input("Enter the task time (e.g., 6:30 pm): ")
-    task_date = input("Enter the task date (e.g., today or 2024-11-05): ")
-
-    values = [[task_name, task_time, task_date]]
-    body = {'values': values}
-
-    result = service.spreadsheets().values().append(
+def add_task(task_details):
+    service.spreadsheets().values().append(
         spreadsheetId=SPREADSHEET_ID,
-        range=WRITE_RANGE,
+        range=RANGE,
         valueInputOption="USER_ENTERED",
-        body=body
+        body={'values': task_details}
     ).execute()
 
-    print(f"{result.get('updates').get('updatedCells')} cells updated.")
-
-# Read values from Google Sheets
-def read_tasks():
+def delete_task(task_row):
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=READ_RANGE
+        range=f'Tasks!A{task_row}'
+    ).execute()
+    deleting_task = result.get('values', [])
+
+    # Step 2: Append the row data to the target sheet
+    service.spreadsheets().values().append(
+        spreadsheetId=SPREADSHEET_ID,
+        range='Skipped Tasks!A2',  # Append to the first available row in the target sheet
+        valueInputOption="USER_ENTERED",
+        body={'values': deleting_task}
     ).execute()
 
-    values = result.get('values', [])
+    # Step 3: Delete the original row
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=SPREADSHEET_ID,
+        body={
+            "requests": [
+                {
+                    "deleteDimension": {
+                        "range": {
+                            "sheetId": 1767357025,
+                            "dimension": "ROWS",
+                            "startIndex": task_row - 1,
+                            "endIndex": task_row
+                        }
+                    }
+                }
+            ]
+        }
+    ).execute()
 
-    if not values:
-        print("No data found.")
-    else:
-        print("Task List:")
-        for row in values:
-            # Assuming each row has task name, time, and date
-            print(f"Task: {row[0]}, Time: {row[1]}, Date: {row[2]}")
+    print(f"Moved row {task_row + 1} to sheet ID {1480666189} and deleted it from the original sheet.")
 
-# Main logic to choose between adding a task and reading tasks
+def return_tasks():
+    result = service.spreadsheets().values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range=RANGE
+    ).execute()
+
+    print(result.get('values', []))
+    return result.get('values', [])
+
 def main():
-    choice = input("Enter '1' to add a task or '2' to read tasks: ")
+    while True:
+        choice = input("Enter 1 to add a task, '2' to return tasks, '3' to delete a task, and '4' to exit: ")
 
-    if choice == '1':
-        append_task()
-    elif choice == '2':
-        read_tasks()
-    else:
-        print("Invalid choice. Please enter '1' or '2'.")
+        if choice == '1':
+            add_task([[input("Enter task: "),
+                    input("Enter type: "),
+                    input("Enter priority: "),
+                    input("Enter time required: "),
+                    input("Enter time allocation: "),
+                    input("Enter deadline: "),
+                    "FALSE", # input("Enter completion (TRUE or FALSE): "),
+                    input("Enter location: "),
+                    input("Enter notification settings: ")]])
+        elif choice == '2':
+            return_tasks()
+        elif choice == '3':
+            delete_task(2) ##### 0-index
+        elif choice == '4':
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice. Please try again.")
 
 if __name__ == '__main__':
     main()
