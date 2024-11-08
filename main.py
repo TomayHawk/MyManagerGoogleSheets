@@ -23,19 +23,17 @@ def add_task(task_details):
 def delete_task(task_row):
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=f'Tasks!A{task_row}'
+        range=f'Tasks!A{task_row}:Z{task_row}'
     ).execute()
     deleting_task = result.get('values', [])
 
-    # Step 2: Append the row data to the target sheet
     service.spreadsheets().values().append(
         spreadsheetId=SPREADSHEET_ID,
-        range='Skipped Tasks!A2',  # Append to the first available row in the target sheet
+        range='Skipped Tasks!A2',
         valueInputOption="USER_ENTERED",
         body={'values': deleting_task}
     ).execute()
 
-    # Step 3: Delete the original row
     service.spreadsheets().batchUpdate(
         spreadsheetId=SPREADSHEET_ID,
         body={
@@ -53,8 +51,6 @@ def delete_task(task_row):
             ]
         }
     ).execute()
-
-    print(f"Moved row {task_row + 1} to sheet ID {1480666189} and deleted it from the original sheet.")
 
 def return_tasks():
     result = service.spreadsheets().values().get(
